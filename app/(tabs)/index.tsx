@@ -1,70 +1,101 @@
-import { Image, StyleSheet, Platform } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, Button, StyleSheet, Alert } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
+import * as DocumentPicker from 'expo-document-picker';
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+const HomeScreen = () => {
+  const [selectedAlgorithm, setSelectedAlgorithm] = useState('knn');
+  const [selectedFile, setSelectedFile] = useState(null);
 
-export default function HomeScreen() {
+  // Função para abrir o seletor de arquivos do dispositivo
+  const handleFileSelection = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({});
+      if (result.type === 'success') {
+        setSelectedFile(result.uri);
+      }
+    } catch (err) {
+      Alert.alert("Erro", "Não foi possível selecionar o arquivo.");
+    }
+  };
+
+  // Função para executar o algoritmo selecionado com o arquivo escolhido
+  const handleExecute = () => {
+    if (!selectedFile) {
+      Alert.alert("Erro", "Por favor, selecione um arquivo primeiro.");
+      return;
+    }
+
+    Alert.alert(
+      "Executar Algoritmo",
+      `Algoritmo: ${selectedAlgorithm}\nBase de Dados: ${selectedFile}`
+    );
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({ ios: 'cmd + d', android: 'cmd + m' })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          Tap the Explore tab to learn more about what's included in this starter app.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          When you're ready, run{' '}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
-  );
-}
+    <View style={styles.container}>
+      {/* Texto de instrução para selecionar o algoritmo */}
+      <Text style={styles.label}>Escolha o algoritmo de aprendizagem de máquina</Text>
+      {/* Componente Picker para selecionar o algoritmo */}
+      <Picker
+        selectedValue={selectedAlgorithm}
+        style={styles.picker}
+        onValueChange={(itemValue) => setSelectedAlgorithm(itemValue)}
+      >
+        <Picker.Item label="KNN" value="knn" />
+        <Picker.Item label="Algoritmo Genético" value="genetic" />
+        <Picker.Item label="Árvore de Decisão" value="decision_tree" />
+      </Picker>
 
+      {/* Texto de instrução para selecionar a base de dados */}
+      <Text style={styles.label}>Escolha uma base de dados</Text>
+      {/* Botão para abrir o seletor de arquivos */}
+      <Button title="Selecionar Arquivo" onPress={handleFileSelection} />
+
+      {/* Texto para mostrar o arquivo selecionado, se houver */}
+      {selectedFile && (
+        <Text style={styles.selectedFile}>Arquivo selecionado: {selectedFile}</Text>
+      )}
+
+      {/* Espaçamento extra antes do botão de executar */}
+      <View style={styles.spacer} />
+
+      {/* Botão para executar o algoritmo */}
+      <Button title="Executar Algoritmo" onPress={handleExecute} style={styles.executeButton} />
+    </View>
+  );
+};
+
+// Estilos para os componentes
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  container: {
+    flex: 1,  // Ocupa toda a altura disponível
+    padding: 16,  // Espaçamento interno de 16 unidades
+    justifyContent: 'flex-start',  // Centraliza no início da tela
+    backgroundColor: '#fff',  // Fundo branco
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  label: {
+    fontSize: 16,  // Tamanho da fonte 16
+    marginBottom: 8,  // Margem inferior de 8 unidades
+    fontWeight: 'bold',  // Texto em negrito
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  picker: {
+    height: 50,  // Altura do Picker
+    width: '100%',  // Largura total
+    marginBottom: 16,  // Margem inferior de 16 unidades
+  },
+  selectedFile: {
+    marginTop: 8,  // Margem superior de 8 unidades
+    marginBottom: 16,  // Margem inferior de 16 unidades
+    fontSize: 14,  // Tamanho da fonte 14
+    color: 'green',  // Cor do texto verde
+  },
+  spacer: {
+    flex: 1,  // Ocupa o espaço restante
+  },
+  executeButton: {
+    marginTop: 16,  // Margem superior de 16 unidades
   },
 });
+
+export default HomeScreen;  // Exporta o componente HomeScreen como padrão
