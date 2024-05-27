@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
@@ -138,9 +138,9 @@ const HomeScreen = ({ navigation }) => {
       )}
 
       <View style={styles.spacer} />
-      <Pressable onPress={handleExecute} style={styles.button}>
+      <TouchableOpacity onPress={handleExecute} style={styles.button}>
         <Text style={styles.buttonText}>Executar Algoritmo</Text>
-      </Pressable>
+      </TouchableOpacity>
     </View>
   );
 };
