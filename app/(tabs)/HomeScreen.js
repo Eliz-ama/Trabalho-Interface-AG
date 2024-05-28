@@ -3,115 +3,59 @@ import { View, Text, Pressable, StyleSheet, Alert, TouchableOpacity } from 'reac
 import { Picker } from '@react-native-picker/picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
-import Papa from 'papaparse';
 
 const HomeScreen = ({ navigation }) => {
   const [selectedAlgorithm, setSelectedAlgorithm] = useState('knn');
   const [selectedFile, setSelectedFile] = useState(null);
+  const [fileContent, setFileContent] = useState(null);
 
   const handleFileSelection = async () => {
+    console.log('Opening document picker...');
     try {
-      const result = await DocumentPicker.getDocumentAsync({});
-      if (result.type === 'success') {
-        setSelectedFile(result.uri);
+      const result = await DocumentPicker.getDocumentAsync({ type: '*/*' });
+      console.log('Document picker result:', result);
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const fileUri = result.assets[0].uri;
+        setSelectedFile(fileUri);
+        console.log('File URI:', fileUri);
+
+        const content = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.UTF8 });
+        setFileContent(content);
+        console.log('File content:', content);
+        Alert.alert('Arquivo selecionado com sucesso', `URI: ${fileUri}`);
+      } else {
+        console.log('File selection was cancelled');
+        setSelectedFile(null);
+        setFileContent(null);
       }
     } catch (err) {
       Alert.alert("Erro", "Não foi possível selecionar o arquivo.");
+      console.error('Error selecting file:', err);
     }
-  };
-
-  const processCSV = async (fileUri) => {
-    const fileContent = await FileSystem.readAsStringAsync(fileUri);
-    return new Promise((resolve, reject) => {
-      Papa.parse(fileContent, {
-        complete: (results) => {
-          resolve(results.data);
-        },
-        header: false
-      });
-    });
-  };
-
-  const euclideanDistance = (point1, point2) => {
-    return Math.sqrt(
-      point1.reduce((sum, coord, index) => sum + Math.pow(coord - point2[index], 2), 0)
-    );
-  };
-
-  const runKNN = (x_train, y_train, x_test, k) => {
-    const findNearestNeighbors = (testPoint) => {
-      const distances = x_train.map((trainPoint, index) => ({
-        index,
-        distance: euclideanDistance(trainPoint, testPoint)
-      }));
-      distances.sort((a, b) => a.distance - b.distance);
-      return distances.slice(0, k).map(({ index }) => y_train[index]);
-    };
-
-    const findMostFrequentClass = (nearestNeighbors) => {
-      const classCounts = {};
-      nearestNeighbors.forEach((neighbor) => {
-        classCounts[neighbor] = (classCounts[neighbor] || 0) + 1;
-      });
-      return Object.keys(classCounts).reduce((a, b) =>
-        classCounts[a] > classCounts[b] ? a : b
-      );
-    };
-
-    const predictions = x_test.map((testPoint) => {
-      const nearestNeighbors = findNearestNeighbors(testPoint);
-      return findMostFrequentClass(nearestNeighbors);
-    });
-
-    return predictions;
   };
 
   const handleExecute = async () => {
     if (!selectedFile) {
       Alert.alert("Erro", "Por favor, selecione um arquivo primeiro.");
+      console.log('No file selected');
       return;
     }
 
     try {
-      const data = await processCSV(selectedFile);
-      const attributes = data[0].length - 1;
-      const instances = data.length;
+      if (!fileContent) {
+        Alert.alert("Erro", "O conteúdo do arquivo não foi carregado corretamente.");
+        return;
+      }
 
-      // Assume the last column is the class label
-      const x = data.map(row => row.slice(0, attributes).map(Number));
-      const y = data.map(row => row[attributes]);
+      console.log('Processing file:', selectedFile);
 
-      // Split data into training and test sets
-      const splitIndex = Math.floor(0.7 * instances);
-      const x_train = x.slice(0, splitIndex);
-      const y_train = y.slice(0, splitIndex);
-      const x_test = x.slice(splitIndex);
-      const y_test = y.slice(splitIndex);
+      // Process the file content
+      Alert.alert("Executando Algoritmo", `Conteúdo do Arquivo (parcial): ${fileContent.slice(0, 100)}...`);
 
-      // Run KNN algorithm
-      const k = 7;
-      const predictions = runKNN(x_train, y_train, x_test, k);
-
-      // Calculate accuracy
-      let correctCount = 0;
-      predictions.forEach((prediction, index) => {
-        if (prediction === y_test[index]) {
-          correctCount++;
-        }
-      });
-      const accuracy = (correctCount / y_test.length) * 100;
-
-      const result = {
-        instances,
-        classes: [...new Set(y)].length,
-        attributes,
-        algorithm: selectedAlgorithm,
-        accuracy: accuracy.toFixed(2),
-      };
-
-      navigation.navigate('ResultScreen', { result });
     } catch (err) {
       Alert.alert("Erro", "Ocorreu um erro ao processar o arquivo.");
+      console.error('Error processing file:', err);
     }
   };
 
