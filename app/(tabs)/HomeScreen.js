@@ -3,8 +3,11 @@ import { View, Text, Pressable, StyleSheet, Alert, TouchableOpacity } from 'reac
 import { Picker } from '@react-native-picker/picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
+import { useNavigation } from '@react-navigation/native';
 
-const HomeScreen = ({ navigation }) => {
+const HomeScreen = () => {
+  const navigation = useNavigation();
+  
   const [selectedAlgorithm, setSelectedAlgorithm] = useState('knn');
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileContent, setFileContent] = useState(null);
@@ -51,7 +54,15 @@ const HomeScreen = ({ navigation }) => {
       console.log('Processing file:', selectedFile);
 
       // Process the file content
-      Alert.alert("Executando Algoritmo", `Conteúdo do Arquivo (parcial): ${fileContent.slice(0, 100)}...`);
+      const result = {
+        instances: 150,
+        classes: 3,
+        attributes: 4,
+        algorithm: selectedAlgorithm,
+        accuracy: 85,
+      };
+
+      navigation.navigate('ResultScreen', { result });
 
     } catch (err) {
       Alert.alert("Erro", "Ocorreu um erro ao processar o arquivo.");
