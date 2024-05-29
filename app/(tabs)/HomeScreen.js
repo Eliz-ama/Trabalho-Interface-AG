@@ -4,31 +4,29 @@ import { Picker } from '@react-native-picker/picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { useNavigation } from '@react-navigation/native';
+import KNeighborsClassifier from 'ml-knn';
+import { trainTestSplit } from 'ml-cross-validation';
 
-const HomeScreen = () => {
+function HomeScreen() {
   const navigation = useNavigation();
-  
+
   const [selectedAlgorithm, setSelectedAlgorithm] = useState('knn');
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileContent, setFileContent] = useState(null);
 
   const handleFileSelection = async () => {
-    console.log('Opening document picker...');
     try {
       const result = await DocumentPicker.getDocumentAsync({ type: '*/*' });
-      console.log('Document picker result:', result);
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const fileUri = result.assets[0].uri;
         setSelectedFile(fileUri);
-        console.log('File URI:', fileUri);
 
         const content = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.UTF8 });
         setFileContent(content);
-        console.log('File content:', content);
+
         Alert.alert('Arquivo selecionado com sucesso', `URI: ${fileUri}`);
       } else {
-        console.log('File selection was cancelled');
         setSelectedFile(null);
         setFileContent(null);
       }
@@ -41,7 +39,6 @@ const HomeScreen = () => {
   const handleExecute = async () => {
     if (!selectedFile) {
       Alert.alert("Erro", "Por favor, selecione um arquivo primeiro.");
-      console.log('No file selected');
       return;
     }
 
@@ -51,17 +48,9 @@ const HomeScreen = () => {
         return;
       }
 
-      console.log('Processing file:', selectedFile);
+      // Process the file content and execute KNN algorithm
 
-      // Process the file content
-      const result = {
-        instances: 150,
-        classes: 3,
-        attributes: 4,
-        algorithm: selectedAlgorithm,
-        accuracy: 85,
-      };
-
+      const result = await processFileAndRunKNN(fileContent);
       navigation.navigate('ResultScreen', { result });
 
     } catch (err) {
@@ -69,6 +58,61 @@ const HomeScreen = () => {
       console.error('Error processing file:', err);
     }
   };
+
+  const processFileAndRunKNN = async (fileContent) => {
+    try {
+      if (!fileContent || fileContent.trim() === '') {
+        throw new Error('O conteúdo do arquivo está vazio ou não está no formato esperado.');
+      }
+
+      const lines = fileContent.split('\n');
+      const data = lines.map(line => line.split(','));
+
+      const x = [];
+      const y = [];
+
+      for (let i = 0; i < data.length; i++) {
+        const instance = data[i];
+        if (instance && instance.length > 1) {
+          const cleanInstance = instance.map(value => value.trim());
+          if (cleanInstance.every(field => field !== '')) {
+            x.push(cleanInstance.slice(0, -1).map(value => parseFloat(value)));
+            y.push(cleanInstance.slice(-1)[0]);
+          }
+        }
+      }
+
+      if (x.length === 0 || y.length === 0) {
+        throw new Error('Não há dados válidos no arquivo.');
+      }
+
+      const { train, test } = trainTestSplit(x, y, { testSize: 0.3 });
+      const k = 7;
+      const knn = new KNeighborsClassifier({ k });
+      knn.train(train.x, train.y);
+      const predictions = knn.predict(test.x);
+      // const acuracia = accuracy(predictions, test.y) * 100;
+
+      return {
+        instances: x.length,
+        classes: [...new Set(y)].length,
+        attributes: x[0].length,
+        algorithm: 'KNN',
+        // accuracy: acuracia,
+      };
+    } catch (error) {
+      throw new Error('Erro ao processar o arquivo e executar o algoritmo KNN: ' + error.message);
+    }
+  };
+
+  // Função para calcular a acurácia
+  const calculateAccuracy = (predictions, trueLabels) => {
+
+
+    const correctPredictions = predictions.filter((prediction, index) => prediction === trueLabels[index]);
+    return (correctPredictions.length / trueLabels.length) * 100;
+  };
+
 
   return (
     <View style={styles.container}>
@@ -86,6 +130,7 @@ const HomeScreen = () => {
       <Text style={styles.label}>Escolha uma base de dados</Text>
       <Pressable onPress={handleFileSelection} style={styles.button}>
         <Text style={styles.buttonText}>Selecionar Arquivo</Text>
+
       </Pressable>
 
       {selectedFile && (
@@ -98,7 +143,7 @@ const HomeScreen = () => {
       </TouchableOpacity>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
