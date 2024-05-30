@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Alert, TextInput } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
@@ -11,6 +11,7 @@ function HomeScreen() {
   const [selectedAlgorithm, setSelectedAlgorithm] = useState('knn');
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileContent, setFileContent] = useState(null);
+  const [numGenerations, setNumGenerations] = useState(10);
 
   const handleFileSelection = async () => {
     try {
@@ -39,55 +40,54 @@ function HomeScreen() {
       Alert.alert("Erro", "Por favor, selecione um arquivo primeiro.");
       return;
     }
-
+  
     try {
       if (!fileContent) {
         Alert.alert("Erro", "O conteúdo do arquivo não foi carregado corretamente.");
         return;
       }
-
-      // Process the file content and execute KNN algorithm
-      const result = await processFileAndRunKNN(fileContent);
+  
+      let result;
+      if (selectedAlgorithm === 'knn') {
+        result = await processFileAndRunKNN(fileContent);
+      } else if (selectedAlgorithm === 'genetic') {
+        result = runGeneticAlgorithm(parseInt(numGenerations)); // Convertendo para número inteiro aqui
+      }
+  
       navigation.navigate('ResultScreen', { result });
-
+  
     } catch (err) {
       Alert.alert("Erro", "Ocorreu um erro ao processar o arquivo.");
       console.error('Error processing file:', err);
     }
   };
+  
 
-  // Função para calcular a distância Euclidiana
   const euclideanDistance = (point1, point2) => {
     return Math.sqrt(point1.reduce((sum, value, index) => sum + Math.pow(value - point2[index], 2), 0));
   };
 
-  // Função para executar o algoritmo KNN
   const knn = (trainX, trainY, testX, k) => {
     const predictions = testX.map(testPoint => {
-      // Calcular distâncias entre o ponto de teste e todos os pontos de treino
       const distances = trainX.map((trainPoint, index) => ({
         label: trainY[index],
         distance: euclideanDistance(trainPoint, testPoint)
       }));
 
-      // Ordenar por distância e pegar os k vizinhos mais próximos
       distances.sort((a, b) => a.distance - b.distance);
       const kNearestNeighbors = distances.slice(0, k);
 
-      // Contar as classes dos k vizinhos mais próximos
       const classCounts = kNearestNeighbors.reduce((counts, neighbor) => {
         counts[neighbor.label] = (counts[neighbor.label] || 0) + 1;
         return counts;
       }, {});
 
-      // Retornar a classe mais comum
       return Object.keys(classCounts).reduce((a, b) => classCounts[a] > classCounts[b] ? a : b);
     });
 
     return predictions;
   };
 
-  // Função para calcular a acurácia
   const calculateAccuracy = (predictions, trueLabels) => {
     const correctPredictions = predictions.filter((prediction, index) => prediction === trueLabels[index]);
     return (correctPredictions.length / trueLabels.length) * 100;
@@ -120,7 +120,6 @@ function HomeScreen() {
         throw new Error('Não há dados válidos no arquivo.');
       }
 
-      // Dividir dados em treino e teste
       const splitIndex = Math.floor(x.length * 0.7);
       const trainX = x.slice(0, splitIndex);
       const trainY = y.slice(0, splitIndex);
@@ -143,32 +142,136 @@ function HomeScreen() {
     }
   };
 
+  const runGeneticAlgorithm = (numGenerations) => {
+    const algorithmInstance = new GeneticAlgorithm(numGenerations);
+    algorithmInstance.initExecution();
+    const bestIndividual = algorithmInstance.getBestIndividual();
+    return {
+      ...bestIndividual,
+      algorithm: 'GeneticAlgorithm',
+    };
+  };
+
+  class GeneticAlgorithm {
+    constructor(numGenerations) {
+      this.populationSize = 20;
+      this.population = [];
+      this.numGenerations = numGenerations;
+      this.numOffspring = 14;
+      this.offspring = [];
+      this.mutationRate = 1;
+    }
+
+    evaluateIndividual(x, y, z) {
+      return (x * x) - (3 * y) + (4 * z);
+    }
+
+    createPopulation() {
+      for (let i = 0; i < this.populationSize; i++) {
+        const x = Math.floor(Math.random() * 21) - 10;
+        const y = Math.floor(Math.random() * 13);
+        const z = Math.floor(Math.random() * 41) - 20;
+        const fitness = this.evaluateIndividual(x, y, z);
+        const individual = [x, y, z, fitness];
+        this.population.push(individual);
+      }
+    }
+
+    selectParent() {
+      const candidate1 = Math.floor(Math.random() * this.populationSize);
+      const candidate2 = Math.floor(Math.random() * this.populationSize);
+      return this.population[candidate1][3] > this.population[candidate2][3] ? candidate1 : candidate2;
+    }
+
+    mutate(individual) {
+      const mutationChance = Math.floor(Math.random() * 101);
+      if (mutationChance <= this.mutationRate) {
+        individual[0] = Math.floor(Math.random() * 21) - 10;
+      }
+      if (mutationChance <= this.mutationRate) {
+        individual[1] = Math.floor(Math.random() * 13);
+      }
+      if (mutationChance <= this.mutationRate) {
+        individual[2] = Math.floor(Math.random() * 41) - 20;
+      }
+      individual[3] = this.evaluateIndividual(individual[0], individual[1], individual[2]);
+      return individual;
+    }
+
+    reproduce() {
+      for (let i = 0; i < this.numOffspring / 2; i++) {
+        const parent1Index = this.selectParent();
+        const parent2Index = this.selectParent();
+
+        const parent1 = this.population[parent1Index];
+        const parent2 = this.population[parent2Index];
+
+        const child1 = [parent1[0], parent2[1], parent1[2], 0];
+        const child2 = [parent2[0], parent1[1], parent2[2], 0];
+
+        this.mutate(child1);
+        this.mutate(child2);
+
+        this.offspring.push(child1);
+        this.offspring.push(child2);
+      }
+    }
+
+    discardPopulation() {
+      this.population = this.population.concat(this.offspring);
+      this.population.sort((a, b) => b[3] - a[3]);
+      this.population = this.population.slice(0, this.populationSize);
+      this.offspring = [];
+    }
+
+    getBestIndividual() {
+      const bestIndividual = this.population.reduce((best, current) => (current[3] > best[3] ? current : best));
+      return {
+        x: bestIndividual[0],
+        y: bestIndividual[1],
+        z: bestIndividual[2],
+        fitness: bestIndividual[3],
+      };
+    }
+
+    initExecution() {
+      this.createPopulation();
+      for (let generation = 0; generation < this.numGenerations; generation++) {
+        this.reproduce();
+        this.discardPopulation();
+      }
+    }
+  }
+
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Escolha o algoritmo de aprendizagem de máquina</Text>
+      <Text style={styles.label}>Escolha o algoritmo:</Text>
       <Picker
         selectedValue={selectedAlgorithm}
-        style={styles.picker}
         onValueChange={(itemValue) => setSelectedAlgorithm(itemValue)}
+        style={styles.picker}
       >
         <Picker.Item label="KNN" value="knn" />
         <Picker.Item label="Algoritmo Genético" value="genetic" />
-        <Picker.Item label="Árvore de Decisão" value="decision_tree" />
       </Picker>
 
-      <Text style={styles.label}>Escolha uma base de dados</Text>
+      {selectedAlgorithm === 'genetic' && (
+        <TextInput
+          style={styles.input}
+          placeholder="Número de gerações"
+          keyboardType="numeric"
+          value={isNaN(numGenerations) ? '' : numGenerations.toString()} // Verifica se é NaN e limpa o valor
+          onChangeText={text => setNumGenerations(parseInt(text))}
+        />
+      )}
+
       <Pressable onPress={handleFileSelection} style={styles.button}>
         <Text style={styles.buttonText}>Selecionar Arquivo</Text>
       </Pressable>
 
-      {selectedFile && (
-        <Text style={styles.selectedFile}>Arquivo selecionado: {selectedFile}</Text>
-      )}
-
-      <View style={styles.spacer} />
-      <TouchableOpacity onPress={handleExecute} style={styles.button}>
+      <Pressable onPress={handleExecute} style={styles.button}>
         <Text style={styles.buttonText}>Executar Algoritmo</Text>
-      </TouchableOpacity>
+      </Pressable>
     </View>
   );
 }
@@ -181,35 +284,37 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   label: {
-    fontSize: 16,
+    fontSize: 18,
     marginBottom: 8,
-    fontWeight: 'bold',
+    marginTop: 20,
   },
   picker: {
     height: 50,
     width: '100%',
-    marginBottom: 16,
-  },
-  selectedFile: {
-    marginTop: 8,
-    marginBottom: 16,
-    fontSize: 14,
-    color: 'green',
-  },
-  spacer: {
-    flex: 1,
+    marginBottom: 20,
   },
   button: {
-    marginTop: 16,
-    backgroundColor: '#007BFF',
-    padding: 10,
-    borderRadius: 5,
-    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#993399',
+    borderRadius: 30,
+    alignSelf: 'center',
+    marginTop:50,
+    marginBottom: 250, 
+    width: '100%', 
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: '#fff',
+    textAlign: 'center',
     fontSize: 16,
   },
+  input: {
+    height: 40,
+    borderColor: 'gray',
+    borderWidth: 1,
+    marginBottom: 12,
+    paddingHorizontal: 8,
+  }
 });
+
 
 export default HomeScreen;
