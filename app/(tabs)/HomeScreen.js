@@ -5,6 +5,130 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { useNavigation } from '@react-navigation/native';
 
+
+class TreeNode {
+  constructor(attribute, isLeaf = false, value = null) {
+    this.attribute = attribute;
+    this.children = {};
+    this.isLeaf = isLeaf;
+    this.value = value;
+  }
+}
+
+function buildDecisionTree(trainX, trainY, attributes) {
+  if (trainX.length === 0 || trainY.length === 0) {
+    throw new Error('Não há dados de treinamento válidos.');
+  }
+
+  const root = buildTree(trainX, trainY, attributes.slice());
+
+  return root;
+}
+
+function buildTree(data, labels, attributes) {
+  if (labels.every(label => label === labels[0])) {
+    return new TreeNode(null, true, labels[0]);
+  }
+
+  if (attributes.length === 0 || data.length === 0) {
+    return new TreeNode(null, true, mostCommonLabel(labels));
+  }
+
+  const bestAttribute = findBestAttribute(data, labels, attributes);
+
+  const tree = new TreeNode(bestAttribute);
+
+  const attributeIndex = attributes.indexOf(bestAttribute);
+  attributes.splice(attributeIndex, 1);
+
+  const attributeValues = [...new Set(data.map(instance => instance[attributeIndex]))];
+
+  attributeValues.forEach(value => {
+    const filteredData = [];
+    const filteredLabels = [];
+    data.forEach((instance, index) => {
+      if (instance[attributeIndex] === value) {
+        filteredData.push(instance.filter((_, i) => i !== attributeIndex));
+        filteredLabels.push(labels[index]);
+      }
+    });
+    tree.children[value] = buildTree(filteredData, filteredLabels, attributes.slice());
+  });
+
+  return tree;
+}
+
+function mostCommonLabel(labels) {
+  const labelCounts = labels.reduce((counts, label) => {
+    counts[label] = (counts[label] || 0) + 1;
+    return counts;
+  }, {});
+
+  let mostCommon = null;
+  let maxCount = -1;
+
+  for (const label in labelCounts) {
+    if (labelCounts[label] > maxCount) {
+      mostCommon = label;
+      maxCount = labelCounts[label];
+    }
+  }
+
+  return mostCommon;
+}
+
+function findBestAttribute(data, labels, attributes) {
+  let bestAttribute = null;
+  let bestGain = -1;
+
+  attributes.forEach(attribute => {
+    const gain = calculateInformationGain(data, labels, attributes, attribute); // Corrigido aqui
+    if (gain > bestGain) {
+      bestAttribute = attribute;
+      bestGain = gain;
+    }
+  });
+
+  return bestAttribute;
+}
+
+function calculateInformationGain(data, labels, attributes, attribute) {
+  const attributeIndex = attributes.indexOf(attribute);
+  const attributeValues = [...new Set(data.map(instance => instance[attributeIndex]))];
+
+  let entropy = calculateEntropy(labels);
+
+  attributeValues.forEach(value => {
+    const filteredLabels = [];
+    labels.forEach((label, index) => {
+      if (data[index][attributeIndex] === value) {
+        filteredLabels.push(label);
+      }
+    });
+    const ratio = filteredLabels.length / labels.length;
+    entropy -= ratio * calculateEntropy(filteredLabels);
+  });
+
+  return entropy;
+}
+
+function calculateEntropy(labels) {
+  const labelCounts = labels.reduce((counts, label) => {
+    counts[label] = (counts[label] || 0) + 1;
+    return counts;
+  }, {});
+
+  const totalCount = labels.length;
+
+  let entropy = 0;
+  for (const label in labelCounts) {
+    const probability = labelCounts[label] / totalCount;
+    entropy -= probability * Math.log2(probability);
+  }
+
+  return entropy;
+}
+
 function HomeScreen() {
   const navigation = useNavigation();
 
@@ -52,6 +176,8 @@ function HomeScreen() {
         result = await processFileAndRunKNN(fileContent);
       } else if (selectedAlgorithm === 'genetic') {
         result = runGeneticAlgorithm(parseInt(numGenerations)); // Convertendo para número inteiro aqui
+      } else if (selectedAlgorithm === 'decisionTree') {
+        result = await processFileAndRunDecisionTree(fileContent);
       }
   
       navigation.navigate('ResultScreen', { result });
@@ -60,8 +186,8 @@ function HomeScreen() {
       Alert.alert("Erro", "Ocorreu um erro ao processar o arquivo.");
       console.error('Error processing file:', err);
     }
-  };
-  
+  };  
+
 
   const euclideanDistance = (point1, point2) => {
     return Math.sqrt(point1.reduce((sum, value, index) => sum + Math.pow(value - point2[index], 2), 0));
@@ -130,15 +256,65 @@ function HomeScreen() {
       const predictions = knn(trainX, trainY, testX, k);
       const accuracy = calculateAccuracy(predictions, testY);
 
+      const decisionTree = buildDecisionTree(trainX, trainY, Array.from({ length: trainX[0].length }, (_, i) => i));
+      
       return {
         instances: x.length,
         classes: [...new Set(y)].length,
-        attributes: x[0].length,
+        attributes: x[0].map((_, index) => `Attribute_${index + 1}`), // Corrigido aqui
         algorithm: 'KNN',
         accuracy: accuracy,
+        decisionTree: decisionTree,
       };
     } catch (error) {
       throw new Error('Erro ao processar o arquivo e executar o algoritmo KNN: ' + error.message);
+    }
+  };
+
+  const processFileAndRunDecisionTree = async (fileContent) => {
+    try {
+      if (!fileContent || fileContent.trim() === '') {
+        throw new Error('O conteúdo do arquivo está vazio ou não está no formato esperado.');
+      }
+
+      const lines = fileContent.split('\n');
+      const data = lines.map(line => line.split(','));
+
+      const x = [];
+      const y = [];
+
+      for (let i = 0; i < data.length; i++) {
+        const instance = data[i];
+        if (instance && instance.length > 1) {
+          const cleanInstance = instance.map(value => value.trim());
+          if (cleanInstance.every(field => field !== '')) {
+            x.push(cleanInstance.slice(0, -1).map(value => parseFloat(value)));
+            y.push(cleanInstance.slice(-1)[0]);
+          }
+        }
+      }
+
+      if (x.length === 0 || y.length === 0) {
+        throw new Error('Não há dados válidos no arquivo.');
+      }
+
+      const splitIndex = Math.floor(x.length * 0.7);
+      const trainX = x.slice(0, splitIndex);
+      const trainY = y.slice(0, splitIndex);
+      const testX = x.slice(splitIndex);
+      const testY = y.slice(splitIndex);
+
+      const decisionTree = buildDecisionTree(trainX, trainY, Array.from({ length: trainX[0].length }, (_, i) => i));
+      
+      return {
+        instances: x.length,
+        classes: [...new Set(y)].length,
+        attributes: x[0].map((_, index) => `Attribute_${index + 1}`), // Corrigido aqui
+        algorithm: 'Árvore de Decisão',
+        decisionTree: decisionTree,
+      };
+    } catch (error) {
+      throw new Error('Erro ao processar o arquivo e executar o algoritmo Árvore de Decisão: ' + error.message);
     }
   };
 
@@ -253,6 +429,7 @@ function HomeScreen() {
       >
         <Picker.Item label="KNN" value="knn" />
         <Picker.Item label="Algoritmo Genético" value="genetic" />
+        <Picker.Item label="Árvore de Decisão" value="decisionTree" />
       </Picker>
 
       {selectedAlgorithm === 'genetic' && (
@@ -315,6 +492,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   }
 });
-
 
 export default HomeScreen;
