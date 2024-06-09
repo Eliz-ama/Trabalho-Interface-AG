@@ -1,82 +1,73 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import SvgUri from 'react-native-svg-uri';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import DecisionTree from './DecisionTree';
+import GeneticTree from './GeneticTree';
 
 const ResultScreen = ({ route }) => {
   const { result } = route.params;
 
-  if (result.algorithm === 'KNN') {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.resultText}>Informações da base:</Text>
-        <Text style={styles.resultText}> Quantidade de instâncias: {result.instances}</Text>
-        <Text style={styles.resultText}> Quantidade de classes: {result.classes}</Text>
-        <Text style={styles.resultText}> Quantidade de atributos: {result.attributes}</Text>
-        <Text style={styles.resultText}> Informações do algoritmo:</Text>
-        <Text style={styles.resultText}> Algoritmo: {result.algorithm}</Text>
-        <Text style={styles.resultText}> Taxa de acerto: {result.accuracy}%</Text>
-      </View>
-    );
-  } else if (result.algorithm === 'GeneticAlgorithm') {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.resultText}>O melhor indivíduo:</Text>
-        <Text style={styles.resultText}> X = {result.x}</Text>
-        <Text style={styles.resultText}> Y = {result.y}</Text>
-        <Text style={styles.resultText}> Z = {result.z}</Text>
-        <Text style={styles.resultText}> Fitness = {result.fitness}</Text>
-        <Text style={styles.resultText}> Informações do algoritmo:</Text>
-        <Text style={styles.resultText}> Algoritmo: {result.algorithm}</Text>
-      </View>
-    );
-  } else if (result.algorithm === 'DecisionTree') {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.resultText}>Informações da base:</Text>
-        <Text style={styles.resultText}> Quantidade de instâncias: {result.instances}</Text>
-        <Text style={styles.resultText}> Quantidade de classes: {result.classes}</Text>
-        <Text style={styles.resultText}> Quantidade de atributos: {result.attributes}</Text>
-        <Text style={styles.resultText}> Informações do algoritmo:</Text>
-        <Text style={styles.resultText}> Algoritmo: {result.algorithm}</Text>
-        <Text style={styles.resultText}> Taxa de acerto: {result.accuracy}%</Text>
-        {result.decisionTree ? (
-          <View style={styles.treeContainer}>
-            <SvgUri
-              width="100%"
-              height="100%"
-              source={{ uri: result.decisionTree }} // Certifique-se de que result.decisionTree contém a URL do SVG
-            />
-          </View>
-        ) : (
-          <Text style={styles.resultText}>Nenhuma árvore de decisão disponível.</Text>
+  return (
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.header}>Resultado</Text>
+      <View style={styles.resultContainer}>
+        <Text style={styles.resultItem}>Algoritmo: {result?.algorithm}</Text>
+        {result?.algorithm !== 'GeneticAlgorithm' && (
+          <>
+            <Text style={styles.resultItem}>Instâncias: {result?.instances}</Text>
+            <Text style={styles.resultItem}>Classes: {result?.classes}</Text>
+          </>
         )}
+        {result?.attributes && (
+          <Text style={styles.resultItem}>Atributos: {result.attributes.join(', ')}</Text>
+        )}
+        {result?.algorithm === 'KNN' && result?.accuracy !== undefined && (
+          <Text style={styles.resultItem}>Acurácia: {result.accuracy.toFixed(2)}%</Text>
+        )}
+        {result?.algorithm === 'Árvore de Decisão' && result?.decisionTree ? (
+          <>
+            {result.decisionTree.accuracy !== undefined && (
+              <Text style={styles.resultItem}>Acurácia: {result.decisionTree.accuracy.toFixed(2)}%</Text>
+            )}
+            <DecisionTree decisionTree={result.decisionTree} accuracy={result.accuracy} />
+          </>
+        ) : null}
+        {result?.algorithm === 'GeneticAlgorithm' && result?.x !== undefined && result?.y !== undefined && result?.z !== undefined ? (
+          <View style={styles.container}>
+            <Text style={styles.resultText}>O melhor indivíduo:</Text>
+            <Text style={styles.resultText}> X = {result.x}</Text>
+            <Text style={styles.resultText}> Y = {result.y}</Text>
+            <Text style={styles.resultText}> Z = {result.z}</Text>
+            <Text style={styles.resultText}> Fitness = {result.fitness}</Text>
+            <Text style={styles.resultText}> Informações do algoritmo:</Text>
+            <Text style={styles.resultText}> Algoritmo: {result.algorithm}</Text>
+          </View>
+        ) : null}
       </View>
-    );
-  }
-
-  return null;
+    </ScrollView>
+  );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    padding: 16,
-    justifyContent: 'center',
-    backgroundColor: '#fff',
+    flexGrow: 1,
+    paddingVertical: 20,
+    paddingHorizontal: 20,
   },
-  resultText: {
-    fontSize: 18,
-    marginBottom: 12,
-    textAlign: 'left',
+  header: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
   },
-  treeContainer: {
-    flex: 1,
-    marginTop: 20,
+  resultContainer: {
     borderWidth: 1,
     borderColor: '#ccc',
+    borderRadius: 5,
     padding: 10,
-    borderRadius: 10,
-    overflow: 'hidden',
+    marginBottom: 20,
+  },
+  resultItem: {
+    fontSize: 16,
+    marginBottom: 5,
   },
 });
 

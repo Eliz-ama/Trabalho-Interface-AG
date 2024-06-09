@@ -6,8 +6,8 @@ const ImageComponent = () => {
     <View style={styles.container}>
       <Image
         style={styles.image}
-        source={require('./assets/images/splash.png')} // Verifique o caminho e o nome do arquivo
-        resizeMode="contain" // Modo de redimensionamento da imagem
+        source={require('../../assets/images/favicon.png')} // Verifique se o caminho está correto
+        resizeMode="contain"
       />
     </View>
   );
