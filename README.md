@@ -13,15 +13,10 @@ Para começar a usar o projeto, siga os passos abaixo:
 
 1. Clone o repositório:
     ```sh
-    git clone https://github.com/usuario/repositorio.git
+    https://github.com/Eliz-ama/Trabalho-Interface-AG.git
     ```
 
-2. Navegue até o diretório do projeto:
-    ```sh
-    cd repositorio
-    ```
-
-3. Instale as dependências necessárias:
+2. Instale as dependências necessárias:
     ```sh
     npm i --force
     ```
@@ -31,3 +26,4 @@ Para começar a usar o projeto, siga os passos abaixo:
 Para iniciar o projeto, utilize o seguinte comando:
 ```sh
 npx expo start -c
+ ```
